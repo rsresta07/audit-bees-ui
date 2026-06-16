@@ -1,6 +1,6 @@
-import { GetRequest } from "@/plugins/https";
+// import { GetRequest } from "@/plugins/https";
 
-export const APIGetBranding = () =>
-  GetRequest(
-    `/project-setting`
-  );
+// export const APIGetBranding = () =>
+//   GetRequest(
+//     `/project-setting`
+//   );
