@@ -1,17 +1,17 @@
 import React from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { UserRolesEnum } from "@/utils/enums/enum";
-import { TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, ArrowUpRight, ArrowDownRight, Banknote, Users, Undo2, FileText } from "lucide-react";
 import { Title, Text, Box, SimpleGrid, Paper, Group, Table, Center } from "@mantine/core";
 import { CommonHeading, CommonTable } from "@/components/common";
 
 export default function AdminReports() {
   // Mock data for reports
   const stats = [
-    { label: "Total Revenue", value: "Rs. 2.4M", change: "+12.5%", trend: "up" },
-    { label: "Active Clients", value: "45", change: "+5.2%", trend: "up" },
-    { label: "Pending Returns", value: "12", change: "-2.4%", trend: "down" },
-    { label: "Total Transactions", value: "1,240", change: "+18.1%", trend: "up" },
+    { label: "Total Revenue", value: "Rs. 2.4M", change: "+12.5%", trend: "up", icon: <Banknote size={18} color="var(--muted-foreground)" /> },
+    { label: "Active Clients", value: "45", change: "+5.2%", trend: "up", icon: <Users size={18} color="var(--muted-foreground)" /> },
+    { label: "Pending Returns", value: "12", change: "-2.4%", trend: "down", icon: <Undo2 size={18} color="var(--muted-foreground)" /> },
+    { label: "Total Transactions", value: "1,240", change: "+18.1%", trend: "up", icon: <FileText size={18} color="var(--muted-foreground)" /> },
   ];
 
   return (
@@ -24,7 +24,10 @@ export default function AdminReports() {
       <SimpleGrid cols={{ base: 1, md: 2, lg: 4 }} spacing="lg" mb="xl">
         {stats.map((stat, i) => (
           <Paper key={i} withBorder p="md" radius="md">
-            <Text size="sm" c="var(--muted-foreground)" fw={500}>{stat.label}</Text>
+            <Group justify="space-between" align="center" mb="xs">
+              <Text size="sm" c="var(--muted-foreground)" fw={500}>{stat.label}</Text>
+              {stat.icon}
+            </Group>
             <Group align="flex-end" gap="xs" mt={5}>
               <Text size="xl" fw={700}>{stat.value}</Text>
               <Text 

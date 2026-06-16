@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { UserRolesEnum } from "@/utils/enums/enum";
 import { Text, Paper, Flex, Table } from "@mantine/core";
-import { CommonBadge, CommonFilter, CommonHeading, CommonSearch, CommonTable } from "@/components/common";
+import { CommonBadge, CommonFilter, CommonHeading, CommonSearch, CommonTable, CommonPagination } from "@/components/common";
 
 export default function AdminTransactions() {
   const [transactions] = useState([
@@ -22,6 +22,15 @@ export default function AdminTransactions() {
     const matchesType = typeFilter ? t.type === typeFilter : true;
     return matchesSearch && matchesType;
   });
+
+  const [page, setPage] = React.useState(1);
+  const itemsPerPage = 10;
+  
+  React.useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter]);
+
+  const paginatedTransactions = filteredTransactions.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const getBadgeColor = (type: string) => {
     switch (type) {
@@ -65,10 +74,10 @@ export default function AdminTransactions() {
       <Paper withBorder radius="md">
         <CommonTable
           headers={["Client", "Date", "Type", "Invoice No", "Particulars", "Amount", "Tax"]}
-          isEmpty={filteredTransactions.length === 0}
+          isEmpty={paginatedTransactions.length === 0}
           emptyMessage="No transactions found."
         >
-          {filteredTransactions.map((t) => (
+          {paginatedTransactions.map((t) => (
             <Table.Tr key={t.id}>
               <Table.Td><Text fw={500}>{t.client}</Text></Table.Td>
               <Table.Td>{t.date}</Table.Td>
@@ -84,6 +93,13 @@ export default function AdminTransactions() {
             </Table.Tr>
           ))}
         </CommonTable>
+        {filteredTransactions.length > itemsPerPage && (
+          <CommonPagination 
+            total={Math.ceil(filteredTransactions.length / itemsPerPage)} 
+            value={page} 
+            onChange={setPage} 
+          />
+        )}
       </Paper>
     </DashboardLayout>
   );

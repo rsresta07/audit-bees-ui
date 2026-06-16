@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import Link from "next/link";
-import { Plus, Eye, Edit, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Eye, Edit, Trash2, RefreshCw, Users, CalendarDays, CalendarRange, AlertCircle } from "lucide-react";
 import { UserRolesEnum } from "@/utils/enums/enum";
 import {
   Group, Text, Paper, TextInput, Select, Tooltip,
   Modal, SimpleGrid, ActionIcon, PasswordInput, Flex, Table
 } from "@mantine/core";
-import { CommonHeading, CommonSearch, CommonFilter, CommonTable, CommonButton } from "@/components/common";
+import { CommonHeading, CommonSearch, CommonFilter, CommonTable, CommonButton, CommonPagination } from "@/components/common";
 
 function generateRandomPassword(): string {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -42,6 +42,8 @@ export default function AdminClients() {
 
   const [search, setSearch] = useState("");
   const [vatFilter, setVatFilter] = useState<string | null>("");
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: "", pan: "", address: "", password: "", vatPeriod: "Monthly" });
@@ -67,6 +69,12 @@ export default function AdminClients() {
     const matchesVat = vatFilter ? c.vatPeriod === vatFilter : true;
     return matchesSearch && matchesVat;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, vatFilter]);
+
+  const paginatedClients = filteredClients.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const validateClientForm = (): boolean => {
     const errors: ClientErrors = {};
@@ -142,19 +150,31 @@ export default function AdminClients() {
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} mb="lg">
         <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="var(--muted-foreground)" fw={500}>Total Clients</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="sm" c="var(--muted-foreground)" fw={500}>Total Clients</Text>
+            <Users size={18} color="var(--muted-foreground)" />
+          </Group>
           <Text size="xl" fw={700}>{clients.length}</Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="var(--muted-foreground)" fw={500}>Monthly Filings</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="sm" c="var(--muted-foreground)" fw={500}>Monthly Filings</Text>
+            <CalendarDays size={18} color="var(--muted-foreground)" />
+          </Group>
           <Text size="xl" fw={700}>{clients.filter(c => c.vatPeriod === "Monthly").length}</Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="var(--muted-foreground)" fw={500}>Trimester Filings</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="sm" c="var(--muted-foreground)" fw={500}>Trimester Filings</Text>
+            <CalendarRange size={18} color="var(--muted-foreground)" />
+          </Group>
           <Text size="xl" fw={700}>{clients.filter(c => c.vatPeriod === "Trimester").length}</Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="var(--muted-foreground)" fw={500}>Pending This Month</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="sm" c="var(--muted-foreground)" fw={500}>Pending This Month</Text>
+            <AlertCircle size={18} color="var(--chart-3)" />
+          </Group>
           <Text size="xl" fw={700} c="orange">12</Text>
         </Paper>
       </SimpleGrid>
@@ -179,10 +199,10 @@ export default function AdminClients() {
       <Paper withBorder radius="md">
         <CommonTable
           headers={["Name", "PAN Number", "Address", "VAT Period", "Actions"]}
-          isEmpty={filteredClients.length === 0}
+          isEmpty={paginatedClients.length === 0}
           emptyMessage="No clients found."
         >
-          {filteredClients.map((client) => (
+          {paginatedClients.map((client) => (
             <Table.Tr key={client.id}>
               <Table.Td><Text fw={500}>{client.name}</Text></Table.Td>
               <Table.Td>{client.pan}</Table.Td>
@@ -204,6 +224,13 @@ export default function AdminClients() {
             </Table.Tr>
           ))}
         </CommonTable>
+        {filteredClients.length > itemsPerPage && (
+          <CommonPagination 
+            total={Math.ceil(filteredClients.length / itemsPerPage)} 
+            value={page} 
+            onChange={setPage} 
+          />
+        )}
       </Paper>
 
       <Modal opened={isModalOpen} onClose={closeModal} title={editingClientId ? "Edit Client" : "Add Client"}>

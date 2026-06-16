@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { UserRolesEnum } from "@/utils/enums/enum";
 import { Paper, Text, Flex, Table } from "@mantine/core";
-import { CommonHeading, CommonSearch, CommonFilter, CommonTable, CommonBadge } from "@/components/common";
+import { CommonHeading, CommonSearch, CommonFilter, CommonTable, CommonBadge, CommonPagination } from "@/components/common";
 
 export default function ClientDashboard() {
   const [transactions] = useState([
@@ -21,6 +21,15 @@ export default function ClientDashboard() {
     const matchesType = typeFilter ? t.type === typeFilter : true;
     return matchesSearch && matchesType;
   });
+
+  const [page, setPage] = React.useState(1);
+  const itemsPerPage = 10;
+  
+  React.useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter]);
+
+  const paginatedTransactions = filteredTransactions.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (
     <DashboardLayout role={UserRolesEnum.CLIENT}>
@@ -54,10 +63,10 @@ export default function ClientDashboard() {
       <Paper withBorder shadow="sm" radius="md">
         <CommonTable
           headers={["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Tax"]}
-          isEmpty={filteredTransactions.length === 0}
+          isEmpty={paginatedTransactions.length === 0}
           emptyMessage="No transactions found."
         >
-          {filteredTransactions.map((tx) => (
+          {paginatedTransactions.map((tx) => (
             <Table.Tr key={tx.id}>
               <Table.Td>{tx.date}</Table.Td>
               <Table.Td>
@@ -73,6 +82,13 @@ export default function ClientDashboard() {
             </Table.Tr>
           ))}
         </CommonTable>
+        {filteredTransactions.length > itemsPerPage && (
+          <CommonPagination 
+            total={Math.ceil(filteredTransactions.length / itemsPerPage)} 
+            value={page} 
+            onChange={setPage} 
+          />
+        )}
       </Paper>
     </DashboardLayout>
   );
