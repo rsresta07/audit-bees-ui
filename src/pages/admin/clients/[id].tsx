@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useRouter } from "next/router";
-import { Plus, ArrowLeft, Edit, Trash2, RefreshCw } from "lucide-react";
+import { Plus, ArrowLeft, Edit, Trash2, RefreshCw, ShoppingCart, Tag, CornerDownLeft, CornerUpRight, Calculator, Landmark } from "lucide-react";
 import Link from "next/link";
 import { UserRolesEnum } from "@/utils/enums/enum";
 import {
   Group, Text, Title, Paper, TextInput, Select, Checkbox, Tooltip,
   Modal, SimpleGrid, ActionIcon, PasswordInput, NumberInput, Box, Table
 } from "@mantine/core";
-import { CommonTable, CommonBadge, CommonButton } from "@/components/common";
+import { CommonTable, CommonBadge, CommonButton, CommonPagination } from "@/components/common";
+import { ADToBS } from "bikram-sambat-js";
+import { FiscalYear, getFiscalYearFromDate } from "@/utils/helpers/dateFormatter";
 
 function generateRandomPassword(): string {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -28,13 +30,20 @@ function generateRandomPassword(): string {
   return required.sort(() => Math.random() - 0.5).join("");
 }
 
+type TxItem = {
+  id: string;
+  particulars: string;
+  amount: number;
+  vatPercent: number;
+  tax: number;
+  grandTotal: number;
+};
+
 type TxErrors = {
   date?: string;
   invoice?: string;
-  particulars?: string;
   pan?: string;
-  amount?: string;
-  tax?: string;
+  items?: string;
 };
 
 type ClientErrors = {
@@ -50,17 +59,44 @@ export default function ClientDetail() {
   const router = useRouter();
   const { id } = router.query;
 
-  const [transactions, setTransactions] = useState([
-    { id: "1", type: "Sales", date: "2024-03-15", invoice: "INV-100", particulars: "Website Dev", pan: "12345", amount: 50000, tax: 6500, isImport: false, isCapitalPurchase: false },
-    { id: "2", type: "Purchase", date: "2024-03-18", invoice: "PUR-20", particulars: "Office Supplies", pan: "98765", amount: 10000, tax: 1300, isImport: false, isCapitalPurchase: false },
+  const [transactions, setTransactions] = useState<any[]>([
+    {
+      id: "1",
+      type: "Sales",
+      date: "2024-03-15",
+      invoice: "INV-100",
+      particulars: "Website Dev",
+      pan: "12345",
+      amount: 50000,
+      tax: 6500,
+      isImport: false,
+      isCapitalPurchase: false,
+      items: [{ id: "1-1", particulars: "Website Dev", amount: 50000, vatPercent: 13, tax: 6500, grandTotal: 56500 }]
+    },
+    {
+      id: "2",
+      type: "Purchase",
+      date: "2024-03-18",
+      invoice: "PUR-20",
+      particulars: "Office Supplies",
+      pan: "98765",
+      amount: 10000,
+      tax: 1300,
+      isImport: false,
+      isCapitalPurchase: false,
+      items: [{ id: "2-1", particulars: "Office Supplies", amount: 10000, vatPercent: 13, tax: 1300, grandTotal: 11300 }]
+    },
   ]);
+
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
+  const paginatedTransactions = transactions.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    type: "Sales", date: getTodayDate(), invoice: "", particulars: "", pan: "", amount: 0, tax: 0, isImport: false, isCapitalPurchase: false
-  });
+
   const [txFormErrors, setTxFormErrors] = useState<TxErrors>({});
+  const [fiscalYears, setFiscalYears] = useState<FiscalYear[]>([]);
 
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
   const [clientData, setClientData] = useState({
@@ -70,8 +106,36 @@ export default function ClientDetail() {
 
   const [filingPeriods, setFilingPeriods] = useState<{ id: string, name: string }[]>([]);
 
+
+  const [formData, setFormData] = useState({
+    type: "Sales",
+    date: getTodayDate(),
+    invoice: "",
+    pan: "",
+    isImport: false,
+    isCapitalPurchase: false,
+    items: [
+      {
+        id: Date.now().toString(),
+        particulars: "",
+        amount: 0,
+        vatPercent: 0,
+        tax: 0,
+        grandTotal: 0,
+      },
+    ] as TxItem[],
+  });
+
+  const currentFiscalYear = React.useMemo(
+    () => getFiscalYearFromDate(formData.date, fiscalYears),
+    [formData.date, fiscalYears]
+  );
+
+  const currentVatRate = currentFiscalYear?.vatAmount ?? 0;
+
   React.useEffect(() => {
     const storedPeriods = localStorage.getItem("filingPeriods");
+
     if (storedPeriods) {
       setFilingPeriods(JSON.parse(storedPeriods));
     } else {
@@ -80,28 +144,36 @@ export default function ClientDetail() {
         { id: "2", name: "Trimester" },
       ]);
     }
+
+    const storedFiscalYears = localStorage.getItem("fiscalYears");
+
+    if (storedFiscalYears) {
+      setFiscalYears(JSON.parse(storedFiscalYears));
+    } else {
+      const initialFiscalYears = [
+        { id: "1", year: "2082/83", vatAmount: 13 },
+        { id: "2", year: "2083/84", vatAmount: 13 },
+      ];
+
+      setFiscalYears(initialFiscalYears);
+    }
   }, []);
 
   const validateTxForm = (): boolean => {
     const errors: TxErrors = {};
     if (!formData.date) errors.date = "Date is required.";
     if (!formData.invoice.trim()) errors.invoice = "Invoice number is required.";
-    if (!formData.particulars.trim()) errors.particulars = "Particulars are required.";
     if (!formData.pan.trim() || !/^\d{9}$/.test(formData.pan.trim())) errors.pan = "PAN/VAT must be exactly 9 digits.";
-    
-    if (isNaN(formData.amount) || formData.amount <= 0) {
-      errors.amount = "Amount must be a valid number greater than 0.";
-    }
-    
-    if (isNaN(formData.tax) || formData.tax < 0) {
-      errors.tax = "Tax cannot be negative.";
-    } else if (!isNaN(formData.amount) && formData.tax > formData.amount) {
-      errors.tax = "Tax cannot be greater than the transaction amount.";
-    }
 
-    if ((formData.type.includes("Sales")) && (formData.isImport || formData.isCapitalPurchase)) {
-       // Just silently ignore or throw error? Better to clear them in the state or show an error. 
-       // We'll show an error on particulars just to inform, or handle it in onChange.
+    if (formData.items.length === 0) {
+      errors.items = "At least one item is required.";
+    } else {
+      let hasError = false;
+      for (const item of formData.items) {
+        if (!item.particulars.trim()) hasError = true;
+        if (item.amount < 0) hasError = true;
+      }
+      if (hasError) errors.items = "All items must have particulars and valid amounts.";
     }
 
     setTxFormErrors(errors);
@@ -112,18 +184,36 @@ export default function ClientDetail() {
     e.preventDefault();
     if (!validateTxForm()) return;
 
+    const totalAmount = formData.items.reduce(
+      (sum, item) => sum + item.amount,
+      0
+    );
+
+    const totalTax = formData.items.reduce(
+      (sum, item) => sum + item.tax,
+      0
+    );
+
+    const grandTotal = formData.items.reduce(
+      (sum, item) => sum + item.grandTotal,
+      0
+    );
+    const particularsStr = formData.items.map(i => i.particulars).filter(Boolean).join(", ");
+
     if (editingTxId) {
       setTransactions(transactions.map(t => t.id === editingTxId ? {
         ...t,
         type: formData.type,
         date: formData.date,
         invoice: formData.invoice,
-        particulars: formData.particulars,
+        particulars: particularsStr,
         pan: formData.pan,
-        amount: formData.amount,
-        tax: formData.tax,
+        amount: totalAmount,
+        tax: totalTax,
+        grandTotal,
         isImport: formData.isImport,
         isCapitalPurchase: formData.isCapitalPurchase,
+        items: formData.items,
       } : t));
     } else {
       const newTx = {
@@ -131,18 +221,20 @@ export default function ClientDetail() {
         type: formData.type,
         date: formData.date,
         invoice: formData.invoice,
-        particulars: formData.particulars,
+        particulars: particularsStr,
         pan: formData.pan,
-        amount: formData.amount,
-        tax: formData.tax,
+        amount: totalAmount,
+        tax: totalTax,
+        grandTotal,
         isImport: formData.isImport,
         isCapitalPurchase: formData.isCapitalPurchase,
+        items: formData.items,
       };
       setTransactions([...transactions, newTx]);
     }
     setIsTxModalOpen(false);
     setEditingTxId(null);
-    setFormData({ type: "Sales", date: getTodayDate(), invoice: "", particulars: "", pan: "", amount: 0, tax: 0, isImport: false, isCapitalPurchase: false });
+    setFormData({ type: "Sales", date: getTodayDate(), invoice: "", pan: "", isImport: false, isCapitalPurchase: false, items: [{ id: "1", particulars: "", amount: 0, vatPercent: 0, tax: 0, grandTotal: 0 }] });
   };
 
   const handleEditTx = (tx: any) => {
@@ -151,14 +243,100 @@ export default function ClientDetail() {
       type: tx.type,
       date: tx.date,
       invoice: tx.invoice,
-      particulars: tx.particulars,
       pan: tx.pan,
-      amount: tx.amount,
-      tax: tx.tax,
       isImport: tx.isImport ?? false,
       isCapitalPurchase: tx.isCapitalPurchase ?? false,
+      items:
+        tx.items && tx.items.length > 0
+          ? tx.items
+          : [
+            {
+              id: Date.now().toString(),
+              particulars: tx.particulars,
+              amount: tx.amount,
+              vatPercent: currentVatRate,
+              tax: tx.tax,
+              grandTotal: tx.amount + tx.tax,
+            },
+          ],
     });
     setIsTxModalOpen(true);
+  };
+
+  const handleItemChange = (
+    index: number,
+    field: keyof TxItem,
+    value: any
+  ) => {
+    const newItems = [...formData.items];
+
+    const item = {
+      ...newItems[index],
+      [field]: value,
+    };
+
+    const amount =
+      Number(field === "amount" ? value : item.amount) || 0;
+
+    const tax = amount * (currentVatRate / 100);
+
+    item.vatPercent = currentVatRate;
+    item.tax = Number(tax.toFixed(2));
+    item.grandTotal = Number((amount + tax).toFixed(2));
+
+    newItems[index] = item;
+
+    setFormData((prev) => ({
+      ...prev,
+      items: newItems,
+    }));
+  };
+
+  const updateDate = (newDate: string) => {
+    const fy = getFiscalYearFromDate(newDate, fiscalYears);
+
+    const vatRate = fy?.vatAmount ?? 0;
+
+    setFormData((prev) => ({
+      ...prev,
+      date: newDate,
+      items: prev.items.map((item) => {
+        const tax = item.amount * (vatRate / 100);
+
+        return {
+          ...item,
+          vatPercent: vatRate,
+          tax: Number(tax.toFixed(2)),
+          grandTotal: Number((item.amount + tax).toFixed(2)),
+        };
+      }),
+    }));
+  };
+
+  const addItemRow = () => {
+    setFormData((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          id: Date.now().toString(),
+          particulars: "",
+          amount: 0,
+          vatPercent: currentVatRate,
+          tax: 0,
+          grandTotal: 0,
+        },
+      ],
+    }));
+  };
+
+  const removeItemRow = (index: number) => {
+    if (formData.items.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.filter((_, i) => i !== index)
+      }));
+    }
   };
 
   const validateClientForm = (): boolean => {
@@ -212,7 +390,7 @@ export default function ClientDetail() {
     <DashboardLayout role={UserRolesEnum.SUPER_ADMIN}>
       <Box mb="xl">
         <CommonButton
-          component={Link} 
+          component={Link}
           href="/admin/clients"
           variant="subtle"
           color="var(--muted-foreground)"
@@ -223,8 +401,14 @@ export default function ClientDetail() {
         </CommonButton>
         <Group justify="space-between" align="flex-end">
           <Box>
-            <Title order={2}>Client Detail: #{id}</Title>
-            <Text c="var(--muted-foreground)">Manage transactions for this client.</Text>
+            <Title order={2}>{clientData.name}</Title>
+            <Group gap="xs" mt={4}>
+              <CommonBadge color="var(--primary)">PAN: {clientData.pan}</CommonBadge>
+              <Text size="sm" c="var(--muted-foreground)">•</Text>
+              <Text size="sm" c="var(--muted-foreground)">{clientData.address}</Text>
+              <Text size="sm" c="var(--muted-foreground)">•</Text>
+              <Text size="sm" c="var(--muted-foreground)">VAT: {clientData.vatPeriod}</Text>
+            </Group>
           </Box>
           <Group>
             <CommonButton
@@ -242,7 +426,7 @@ export default function ClientDetail() {
               onClick={() => {
                 setEditingTxId(null);
                 setTxFormErrors({});
-                setFormData({ type: "Sales", date: getTodayDate(), invoice: "", particulars: "", pan: "", amount: 0, tax: 0, isImport: false, isCapitalPurchase: false });
+                setFormData({ type: "Sales", date: getTodayDate(), invoice: "", pan: "", isImport: false, isCapitalPurchase: false, items: [{ id: "1", particulars: "", amount: 0, vatPercent: 0, tax: 0, grandTotal: 0 }] });
                 setIsTxModalOpen(true);
               }}
             >
@@ -254,27 +438,45 @@ export default function ClientDetail() {
 
       <SimpleGrid cols={{ base: 2, md: 3, lg: 6 }} mb="xl">
         <Paper withBorder p="md" radius="md">
-          <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Total Purchase</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Total Purchase</Text>
+            <ShoppingCart size={16} color="var(--muted-foreground)" />
+          </Group>
           <Text size="xl" fw={700}>{totalPurchase.toLocaleString()}</Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Total Sales</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Total Sales</Text>
+            <Tag size={16} color="var(--muted-foreground)" />
+          </Group>
           <Text size="xl" fw={700}>{totalSales.toLocaleString()}</Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Purchase Return</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Purchase Return</Text>
+            <CornerDownLeft size={16} color="var(--muted-foreground)" />
+          </Group>
           <Text size="xl" fw={700}>{purchaseReturn.toLocaleString()}</Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Sales Return</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Sales Return</Text>
+            <CornerUpRight size={16} color="var(--muted-foreground)" />
+          </Group>
           <Text size="xl" fw={700}>{salesReturn.toLocaleString()}</Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Net Taxables</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Net Taxables</Text>
+            <Calculator size={16} color={netTaxable >= 0 ? "var(--chart-1)" : "var(--destructive)"} />
+          </Group>
           <Text size="xl" fw={700} c={netTaxable >= 0 ? "var(--chart-1)" : "var(--destructive)"}>{netTaxable.toLocaleString()}</Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Net VAT</Text>
+          <Group justify="space-between" align="center" mb="xs">
+            <Text size="xs" c="var(--muted-foreground)" fw={500} tt="uppercase">Net VAT</Text>
+            <Landmark size={16} color={netVat >= 0 ? "var(--chart-1)" : "var(--destructive)"} />
+          </Group>
           <Text size="xl" fw={700} c={netVat >= 0 ? "var(--chart-1)" : "var(--destructive)"}>{netVat.toLocaleString()}</Text>
         </Paper>
       </SimpleGrid>
@@ -285,10 +487,10 @@ export default function ClientDetail() {
         </Box>
         <CommonTable
           headers={["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Tax", "Actions"]}
-          isEmpty={transactions.length === 0}
+          isEmpty={paginatedTransactions.length === 0}
           emptyMessage="No transactions found."
         >
-          {transactions.map((tx) => (
+          {paginatedTransactions.map((tx) => (
             <Table.Tr key={tx.id}>
               <Table.Td>{tx.date}</Table.Td>
               <Table.Td>
@@ -314,16 +516,23 @@ export default function ClientDetail() {
             </Table.Tr>
           ))}
         </CommonTable>
+        {transactions.length > itemsPerPage && (
+          <CommonPagination
+            total={Math.ceil(transactions.length / itemsPerPage)}
+            value={page}
+            onChange={setPage}
+          />
+        )}
       </Paper>
 
       <Modal
         opened={isTxModalOpen}
         onClose={() => setIsTxModalOpen(false)}
         title={editingTxId ? "Edit Transaction" : "Add Transaction"}
-        size="lg"
+        size="75%"
       >
         <form onSubmit={handleSaveTransaction} noValidate>
-          <SimpleGrid cols={2} spacing="md" mb="md">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="md">
             <Select
               required
               label="Transaction Type"
@@ -344,7 +553,7 @@ export default function ClientDetail() {
               label="Date"
               value={formData.date}
               error={txFormErrors.date}
-              onChange={(e) => txField("date", e.currentTarget.value)}
+              onChange={(e) => updateDate(e.currentTarget.value)}
             />
             <TextInput
               required
@@ -356,14 +565,6 @@ export default function ClientDetail() {
             />
             <TextInput
               required
-              label="Particulars"
-              placeholder="e.g. Office Supplies"
-              value={formData.particulars}
-              error={txFormErrors.particulars}
-              onChange={(e) => txField("particulars", e.currentTarget.value)}
-            />
-            <TextInput
-              required
               label="VAT/PAN Number"
               placeholder="9-digit PAN"
               maxLength={9}
@@ -371,24 +572,8 @@ export default function ClientDetail() {
               error={txFormErrors.pan}
               onChange={(e) => txField("pan", e.currentTarget.value.replace(/\D/g, ""))}
             />
-            <NumberInput
-              required
-              label="Amount"
-              min={0}
-              value={formData.amount || ""}
-              error={txFormErrors.amount}
-              onChange={(val) => txField("amount", Number(val))}
-            />
-            <NumberInput
-              required
-              label="Tax Amount"
-              min={0}
-              value={formData.tax || ""}
-              error={txFormErrors.tax}
-              onChange={(val) => txField("tax", Number(val))}
-            />
           </SimpleGrid>
-          <SimpleGrid cols={2} spacing="md" mb="md">
+          <SimpleGrid cols={2} spacing="md" mb="lg">
             <Checkbox
               label="Import"
               checked={formData.isImport}
@@ -402,6 +587,141 @@ export default function ClientDetail() {
               onChange={(e) => txField("isCapitalPurchase", e.currentTarget.checked)}
             />
           </SimpleGrid>
+
+          <Box mb="xl" style={{ overflowX: "auto" }}>
+            <Text fw={600} mb="xs">Line Items</Text>
+            {txFormErrors.items && <Text c="red" size="sm" mb="xs">{txFormErrors.items}</Text>}
+            <Table withTableBorder withColumnBorders>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Particulars</Table.Th>
+                  <Table.Th style={{ width: 180 }}>Amount</Table.Th>
+                  <Table.Th style={{ width: 120 }}>VAT %</Table.Th>
+                  <Table.Th style={{ width: 150 }}>VAT Amount</Table.Th>
+                  <Table.Th style={{ width: 180 }}>Grand Total</Table.Th>
+                  <Table.Th style={{ width: 50 }} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {formData.items.map((item, index) => (
+                  <Table.Tr key={item.id}>
+                    <Table.Td>
+                      <TextInput
+                        placeholder="Particulars"
+                        value={item.particulars}
+                        onChange={(e) =>
+                          handleItemChange(
+                            index,
+                            "particulars",
+                            e.currentTarget.value
+                          )
+                        }
+                        variant="unstyled"
+                      />
+                    </Table.Td>
+
+                    <Table.Td>
+                      <NumberInput
+                        value={item.amount}
+                        min={0}
+                        onChange={(v) =>
+                          handleItemChange(index, "amount", v)
+                        }
+                        variant="unstyled"
+                        hideControls
+                      />
+                    </Table.Td>
+
+                    <Table.Td>
+                      <NumberInput
+                        value={item.vatPercent}
+                        readOnly
+                        suffix="%"
+                        variant="unstyled"
+                        hideControls
+                      />
+                    </Table.Td>
+
+                    <Table.Td>
+                      <NumberInput
+                        value={item.tax}
+                        readOnly
+                        variant="unstyled"
+                        hideControls
+                        styles={{
+                          input: {
+                            fontWeight: 600,
+                          },
+                        }}
+                      />
+                    </Table.Td>
+
+                    <Table.Td>
+                      <NumberInput
+                        value={item.grandTotal}
+                        readOnly
+                        variant="unstyled"
+                        hideControls
+                        styles={{
+                          input: {
+                            fontWeight: 600,
+                          },
+                        }}
+                      />
+                    </Table.Td>
+
+                    <Table.Td>
+                      <ActionIcon
+                        color="red"
+                        variant="subtle"
+                        onClick={() => removeItemRow(index)}
+                        disabled={formData.items.length === 1}
+                      >
+                        <Trash2 size={16} />
+                      </ActionIcon>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+              <Table.Tfoot>
+                <Table.Tr>
+                  <Table.Th>
+                    <CommonButton
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<Plus size={14} />}
+                      onClick={addItemRow}
+                    >
+                      Add Row
+                    </CommonButton>
+                  </Table.Th>
+
+                  <Table.Th>
+                    {formData.items
+                      .reduce((s, i) => s + i.amount, 0)
+                      .toLocaleString()}
+                  </Table.Th>
+
+                  <Table.Th>{currentVatRate}%</Table.Th>
+
+                  <Table.Th>
+                    {formData.items
+                      .reduce((s, i) => s + i.tax, 0)
+                      .toLocaleString()}
+                  </Table.Th>
+
+                  <Table.Th>
+                    {formData.items
+                      .reduce((s, i) => s + i.grandTotal, 0)
+                      .toLocaleString()}
+                  </Table.Th>
+
+                  <Table.Th />
+                </Table.Tr>
+              </Table.Tfoot>
+            </Table>
+          </Box>
+
           <Group justify="flex-end">
             <CommonButton variant="default" onClick={() => setIsTxModalOpen(false)}>Cancel</CommonButton>
             <CommonButton type="submit">Save Transaction</CommonButton>
