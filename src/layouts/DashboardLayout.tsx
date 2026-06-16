@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import { deleteCookie } from "cookies-next";
 import { UserRolesEnum } from "@/utils/enums/enum";
 import { Users, FileText, Settings, LogOut, Sun, Moon } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface LayoutProps {
   children: ReactNode;
@@ -22,6 +23,12 @@ export default function DashboardLayout({ children, role }: LayoutProps) {
     deleteCookie("role");
     router.push("/login");
   };
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const navItems = role === UserRolesEnum.SUPER_ADMIN
     ? [
@@ -52,13 +59,18 @@ export default function DashboardLayout({ children, role }: LayoutProps) {
           </Group>
           <Group>
             <Text size="sm" c="var(--muted-foreground)" visibleFrom="sm">{role} Portal</Text>
-            <ActionIcon 
-              variant="default" 
-              onClick={() => toggleColorScheme()} 
+            <ActionIcon
+              variant="default"
+              onClick={() => toggleColorScheme()}
               size="lg"
               aria-label="Toggle color scheme"
             >
-              {colorScheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              {mounted &&
+                (colorScheme === "dark" ? (
+                  <Sun size={18} />
+                ) : (
+                  <Moon size={18} />
+                ))}
             </ActionIcon>
             <Button variant="subtle" color="var(--destructive)" leftSection={<LogOut size={18} />} onClick={handleLogout}>
               Logout
