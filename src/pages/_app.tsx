@@ -1,6 +1,50 @@
+import "@mantine/core/styles.css";
 import "@/styles/globals.css";
 import type { AppProps } from "next/app";
+import { MantineProvider, createTheme } from "@mantine/core";
+import { Inter, Merriweather, JetBrains_Mono } from "next/font/google";
+import Head from "next/head";
+
+const fontSans = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
+
+const fontSerif = Merriweather({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  weight: ["400", "700"],
+});
+
+const fontMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
+
+// Configure Mantine to use the CSS variables defined in your globals.css
+const theme = createTheme({
+  fontFamily: "var(--font-sans)",
+  fontFamilyMonospace: "var(--font-mono)",
+  headings: {
+    fontFamily: "var(--font-sans)",
+    fontWeight: "600",
+  },
+  defaultRadius: "md",
+  primaryColor: "indigo", // Fallback primary color, but UI uses your CSS classes where applicable
+});
 
 export default function App({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />;
+  return (
+    <>
+      <Head>
+        <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width, user-scalable=no" />
+      </Head>
+      <div className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable} font-sans antialiased`}>
+        <MantineProvider theme={theme} defaultColorScheme="light">
+          <Component {...pageProps} />
+        </MantineProvider>
+      </div>
+    </>
+  );
 }
+
