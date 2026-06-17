@@ -123,6 +123,7 @@ export default function AddTransaction() {
   }, [txId, id]);
 
   const particularSuggestions = React.useMemo(() => {
+    if (typeof window === "undefined") return [];
     const storedTx = localStorage.getItem(`transactions_${id}`);
     if (!storedTx) return [];
     try {
