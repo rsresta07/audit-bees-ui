@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { UserRolesEnum } from "@/utils/enums/enum";
-import { Paper, Text, Flex, Table } from "@mantine/core";
-import { CommonHeading, CommonSearch, CommonFilter, CommonTable, CommonBadge, CommonPagination } from "@/components/common";
+import { Paper, Text, Flex, Table, Group } from "@mantine/core";
+import { CommonHeading, CommonSearch, CommonFilter, CommonTable, CommonBadge, CommonPagination, CommonButton } from "@/components/common";
+import { Download } from "lucide-react";
+import { exportTableToPDF } from "@/utils/helpers/pdfExport";
 
 export default function ClientDashboard() {
   const [transactions] = useState([
@@ -31,12 +33,41 @@ export default function ClientDashboard() {
 
   const paginatedTransactions = filteredTransactions.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
+  const handleExportPDF = () => {
+    const getTodayDate = () => new Date().toISOString().split("T")[0];
+    const tableRows = filteredTransactions.map(tx => [
+      tx.date,
+      tx.type,
+      tx.invoice,
+      tx.particulars,
+      tx.pan,
+      tx.amount.toLocaleString(),
+      tx.tax.toLocaleString()
+    ]);
+
+    exportTableToPDF({
+      title: "My Transactions",
+      columns: ["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Tax"],
+      data: tableRows,
+      filename: `My_Transactions_${getTodayDate()}.pdf`
+    });
+  };
+
   return (
     <DashboardLayout role={UserRolesEnum.CLIENT}>
-      <CommonHeading 
-        title="My Transactions" 
-        description="View and filter your transaction history." 
-      />
+      <Group justify="space-between" align="flex-start" mb="md">
+        <CommonHeading 
+          title="My Transactions" 
+          description="View and filter your transaction history." 
+        />
+        <CommonButton
+          variant="light"
+          leftSection={<Download size={16} />}
+          onClick={handleExportPDF}
+        >
+          Export PDF
+        </CommonButton>
+      </Group>
 
       <Paper withBorder shadow="sm" p="md" mb="xl" radius="md">
         <Flex gap="md" justify="space-between" direction={{ base: 'column', md: 'row' }}>
