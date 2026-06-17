@@ -61,36 +61,36 @@ export default function ClientDetail() {
         setTransactions([]);
       }
     } else {
-      const initialTx = [
-        {
-          id: "1",
-          type: "Sales",
-          date: "2024-03-15",
-          invoice: "INV-100",
-          particulars: "Website Dev",
-          pan: "12345",
-          amount: 50000,
-          tax: 6500,
+      // Generate 20 dummy transactions for the client
+      const dummyTx: any[] = [];
+      const types = ["Sales", "Purchase", "Sales Return", "Purchase Return"]; 
+      for (let i = 1; i <= 20; i++) {
+        const type = types[Math.floor(Math.random() * types.length)];
+        const amount = Math.floor(Math.random() * 90000) + 1000; // 1k-91k
+        const tax = Math.round(amount * 0.13);
+        dummyTx.push({
+          id: i.toString(),
+          type,
+          date: `2024-03-${(i % 28 + 1).toString().padStart(2, "0")}`,
+          invoice: `${type.substring(0, 3).toUpperCase()}-${100 + i}`,
+          particulars: `${type} transaction ${i}`,
+          pan: "00000",
+          amount,
+          tax,
           isImport: false,
           isCapitalPurchase: false,
-          items: [{ id: "1-1", particulars: "Website Dev", amount: 50000, vatPercent: 13, tax: 6500, grandTotal: 56500 }]
-        },
-        {
-          id: "2",
-          type: "Purchase",
-          date: "2024-03-18",
-          invoice: "PUR-20",
-          particulars: "Office Supplies",
-          pan: "98765",
-          amount: 10000,
-          tax: 1300,
-          isImport: false,
-          isCapitalPurchase: false,
-          items: [{ id: "2-1", particulars: "Office Supplies", amount: 10000, vatPercent: 13, tax: 1300, grandTotal: 11300 }]
-        },
-      ];
-      setTransactions(initialTx);
-      localStorage.setItem(`transactions_${id}`, JSON.stringify(initialTx));
+          items: [{
+            id: `${i}-1`,
+            particulars: `${type} item ${i}`,
+            amount,
+            vatPercent: 13,
+            tax,
+            grandTotal: amount + tax,
+          }],
+        });
+      }
+      setTransactions(dummyTx);
+      localStorage.setItem(`transactions_${id}`, JSON.stringify(dummyTx));
     }
   }, [id]);
 
