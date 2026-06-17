@@ -77,7 +77,6 @@ export default function ClientDashboard() {
             onChange={(e) => setSearch(e.target.value)}
           />
           <CommonFilter
-            label="Filter by Type:"
             value={typeFilter || ""}
             onChange={setTypeFilter}
             allLabel="All Types"
