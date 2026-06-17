@@ -17,7 +17,11 @@ export default function SettingsPage() {
   React.useEffect(() => {
     const storedPeriods = localStorage.getItem("filingPeriods");
     if (storedPeriods) {
-      setFilingPeriods(JSON.parse(storedPeriods));
+      try {
+        setFilingPeriods(JSON.parse(storedPeriods));
+      } catch (e) {
+        console.error("Failed to parse filingPeriods", e);
+      }
     } else {
       const initial = [
         { id: "1", name: "Monthly" },
@@ -29,7 +33,11 @@ export default function SettingsPage() {
 
     const storedFiscalYears = localStorage.getItem("fiscalYears");
     if (storedFiscalYears) {
-      setFiscalYears(JSON.parse(storedFiscalYears));
+      try {
+        setFiscalYears(JSON.parse(storedFiscalYears));
+      } catch (e) {
+        console.error("Failed to parse fiscalYears", e);
+      }
     } else {
       const initial = [
         { id: "1", year: "2080/81", vatAmount: 13 },

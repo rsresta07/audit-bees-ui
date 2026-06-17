@@ -6,7 +6,7 @@ import Link from "next/link";
 import { UserRolesEnum } from "@/utils/enums/enum";
 import {
   Group, Text, Title, Paper, TextInput, Select, Checkbox,
-  SimpleGrid, ActionIcon, NumberInput, Box, Table
+  SimpleGrid, ActionIcon, NumberInput, Box, Table, Autocomplete
 } from "@mantine/core";
 import { CommonButton } from "@/components/common";
 import { FiscalYear, getFiscalYearFromDate } from "@/utils/helpers/dateFormatter";
@@ -15,9 +15,15 @@ type TxItem = {
   id: string;
   date: string;
   invoice: string;
+  debitInvoice?: string;
+  creditInvoice?: string;
   pan: string;
   particulars: string;
+  isImport?: boolean;
+  isCapitalPurchase?: boolean;
   amount: number;
+  taxable: number;
+  nonTaxable: number;
   vatPercent: number;
   tax: number;
   grandTotal: number;
@@ -41,8 +47,6 @@ export default function AddTransaction() {
 
   const [formData, setFormData] = useState({
     type: "Sales",
-    isImport: false,
-    isCapitalPurchase: false,
     items: [
       {
         id: Date.now().toString(),
@@ -50,7 +54,11 @@ export default function AddTransaction() {
         invoice: "",
         pan: "",
         particulars: "",
+        isImport: false,
+        isCapitalPurchase: false,
         amount: 0,
+        taxable: 0,
+        nonTaxable: 0,
         vatPercent: 0,
         tax: 0,
         grandTotal: 0,
@@ -84,29 +92,68 @@ export default function AddTransaction() {
     if (txId && typeof txId === "string") {
       const storedTx = localStorage.getItem(`transactions_${id}`);
       if (storedTx) {
-        const transactions = JSON.parse(storedTx);
-        const existing = transactions.find((t: any) => t.id === txId);
-        if (existing) {
-          setFormData({
-            type: existing.type,
-            isImport: existing.isImport || false,
-            isCapitalPurchase: existing.isCapitalPurchase || false,
-            items: existing.items?.length ? existing.items : [{
-              id: Date.now().toString(),
-              date: existing.date,
-              invoice: existing.invoice,
-              pan: existing.pan,
-              particulars: existing.particulars,
-              amount: existing.amount,
-              vatPercent: existing.tax > 0 ? (existing.tax / existing.amount) * 100 : 0,
-              tax: existing.tax,
-              grandTotal: existing.amount + existing.tax,
-            }]
-          });
+        try {
+          const transactions = JSON.parse(storedTx);
+          const existing = transactions.find((t: any) => t.id === txId);
+          if (existing) {
+            setFormData({
+              type: existing.type,
+              items: existing.items?.length ? existing.items : [{
+                id: Date.now().toString(),
+                date: existing.date,
+                invoice: existing.invoice,
+                pan: existing.pan,
+                particulars: existing.particulars,
+                isImport: existing.isImport || false,
+                isCapitalPurchase: existing.isCapitalPurchase || false,
+                amount: existing.amount,
+                taxable: existing.taxable !== undefined ? existing.taxable : existing.amount,
+                nonTaxable: existing.nonTaxable !== undefined ? existing.nonTaxable : 0,
+                vatPercent: existing.tax > 0 ? (existing.tax / existing.amount) * 100 : 0,
+                tax: existing.tax,
+                grandTotal: existing.amount + existing.tax,
+              }]
+            });
+          }
+        } catch (e) {
+          console.error("Failed to parse transactions", e);
         }
       }
     }
   }, [txId, id]);
+
+  const particularSuggestions = React.useMemo(() => {
+    const storedTx = localStorage.getItem(`transactions_${id}`);
+    if (!storedTx) return [];
+    try {
+      const transactions = JSON.parse(storedTx);
+      let targetTypes: string[] = [];
+      
+      if (formData.type === "Sales" || formData.type === "Purchase Return") {
+        targetTypes = ["Purchase"];
+      } else if (formData.type === "Sales Return") {
+        targetTypes = ["Sales"];
+      } else if (formData.type === "Purchase") {
+        targetTypes = ["Purchase"];
+      }
+
+      const particulars = new Set<string>();
+      transactions.forEach((tx: any) => {
+        if (targetTypes.includes(tx.type)) {
+          if (tx.items && tx.items.length > 0) {
+            tx.items.forEach((item: any) => {
+              if (item.particulars) particulars.add(item.particulars);
+            });
+          } else if (tx.particulars) {
+            particulars.add(tx.particulars);
+          }
+        }
+      });
+      return Array.from(particulars);
+    } catch (e) {
+      return [];
+    }
+  }, [id, formData.type]);
 
   const validateTxForm = (): boolean => {
     const errors: TxErrors = {};
@@ -114,14 +161,18 @@ export default function AddTransaction() {
       errors.items = "At least one item is required.";
     } else {
       let hasError = false;
+      let amountError = false;
+      const isReturn = formData.type === "Sales Return" || formData.type === "Purchase Return";
       for (const item of formData.items) {
         if (!item.date) hasError = true;
-        if (!item.invoice.trim()) hasError = true;
-        if (!item.pan.trim() || !/^\d{9}$/.test(item.pan.trim())) hasError = true;
+        if (!isReturn && !item.invoice.trim()) hasError = true;
+        if (!item.pan.trim()) hasError = true;
         if (!item.particulars.trim()) hasError = true;
-        if (item.amount < 0) hasError = true;
+        if (item.amount < 0 || item.taxable < 0 || item.nonTaxable < 0) hasError = true;
+        if (item.amount !== (item.taxable + item.nonTaxable)) amountError = true;
       }
       if (hasError) errors.items = "All items must have date, invoice, PAN, particulars and valid amounts.";
+      else if (amountError) errors.items = "Amount must be exactly the sum of Taxable and Non-Taxable amounts.";
     }
 
     setTxFormErrors(errors);
@@ -131,11 +182,18 @@ export default function AddTransaction() {
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateTxForm()) return;
-    
+
     // In a real application, you'd send this to an API here
     const storedTx = localStorage.getItem(`transactions_${id}`);
-    let existingTransactions = storedTx ? JSON.parse(storedTx) : [];
-    
+    let existingTransactions = [];
+    if (storedTx) {
+      try {
+        existingTransactions = JSON.parse(storedTx);
+      } catch (e) {
+        console.error("Failed to parse transactions", e);
+      }
+    }
+
     const newTransaction = {
       id: txId && typeof txId === "string" ? txId : Date.now().toString(),
       type: formData.type,
@@ -144,20 +202,22 @@ export default function AddTransaction() {
       particulars: formData.items.length === 1 ? formData.items[0].particulars : "Multiple Items",
       pan: formData.items[0]?.pan || "",
       amount: formData.items.reduce((s, i) => s + i.amount, 0),
+      taxable: formData.items.reduce((s, i) => s + i.taxable, 0),
+      nonTaxable: formData.items.reduce((s, i) => s + i.nonTaxable, 0),
       tax: formData.items.reduce((s, i) => s + i.tax, 0),
-      isImport: formData.isImport,
-      isCapitalPurchase: formData.isCapitalPurchase,
+      isImport: formData.items.some(i => i.isImport),
+      isCapitalPurchase: formData.items.some(i => i.isCapitalPurchase),
       items: formData.items,
     };
-    
+
     if (txId && typeof txId === "string") {
       existingTransactions = existingTransactions.map((t: any) => t.id === txId ? newTransaction : t);
     } else {
       existingTransactions = [newTransaction, ...existingTransactions];
     }
-    
+
     localStorage.setItem(`transactions_${id}`, JSON.stringify(existingTransactions));
-    
+
     router.push(`/admin/clients/${id}`);
   };
 
@@ -170,12 +230,16 @@ export default function AddTransaction() {
     const item = { ...newItems[index], [field]: value };
 
     const vatRate = item.date ? getFiscalYearFromDate(item.date, fiscalYears)?.vatAmount ?? currentVatRate : currentVatRate;
-    const amount = Number(field === "amount" ? value : item.amount) || 0;
-    const tax = amount * (vatRate / 100);
+    
+    if (field === "amount" || field === "taxable" || field === "nonTaxable") {
+      item[field] = Number(value) || 0;
+    }
+
+    const tax = item.taxable * (vatRate / 100);
 
     item.vatPercent = vatRate;
     item.tax = Number(tax.toFixed(2));
-    item.grandTotal = Number((amount + tax).toFixed(2));
+    item.grandTotal = Number((item.taxable + item.nonTaxable + tax).toFixed(2));
 
     newItems[index] = item;
     setFormData((prev) => ({ ...prev, items: newItems }));
@@ -192,7 +256,11 @@ export default function AddTransaction() {
           invoice: "",
           pan: "",
           particulars: "",
+          isImport: false,
+          isCapitalPurchase: false,
           amount: 0,
+          taxable: 0,
+          nonTaxable: 0,
           vatPercent: currentVatRate,
           tax: 0,
           grandTotal: 0,
@@ -244,40 +312,37 @@ export default function AddTransaction() {
               value={formData.type}
               onChange={(val) => {
                 const newType = val || "Sales";
-                if (newType.includes("Sales")) {
-                  setFormData(prev => ({ ...prev, type: newType, isImport: false, isCapitalPurchase: false }));
-                } else {
-                  txField("type", newType);
-                }
+                setFormData(prev => ({ ...prev, type: newType }));
               }}
-            />
-          </SimpleGrid>
-          <SimpleGrid cols={2} spacing="md" mb="lg">
-            <Checkbox
-              label="Import"
-              checked={formData.isImport}
-              disabled={formData.type.includes("Sales")}
-              onChange={(e) => txField("isImport", e.currentTarget.checked)}
-            />
-            <Checkbox
-              label="Capital Purchase"
-              checked={formData.isCapitalPurchase}
-              disabled={formData.type.includes("Sales")}
-              onChange={(e) => txField("isCapitalPurchase", e.currentTarget.checked)}
             />
           </SimpleGrid>
 
           <Box mb="xl" style={{ overflowX: "auto" }}>
             <Text fw={600} mb="xs">Line Items</Text>
             {txFormErrors.items && <Text c="red" size="sm" mb="xs">{txFormErrors.items}</Text>}
+            {formData.items.some(item => item.amount !== (item.taxable + item.nonTaxable)) && (
+              <Text c="red" size="sm" mb="xs">Amount must be exactly the sum of Taxable and Non-Taxable amounts.</Text>
+            )}
             <Table withTableBorder withColumnBorders>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Date</Table.Th>
-                  <Table.Th>Invoice No.</Table.Th>
+                  {["Sales Return", "Purchase Return"].includes(formData.type) ? (
+                    <>
+                      <Table.Th>Debit Invoice</Table.Th>
+                      <Table.Th>Credit Invoice</Table.Th>
+                    </>
+                  ) : (
+                    <Table.Th>Invoice No.</Table.Th>
+                  )}
                   <Table.Th>PAN/VAT</Table.Th>
-                  <Table.Th>Particulars</Table.Th>
+                  <Table.Th>Party/Particulars</Table.Th>
+                  {formData.type === "Purchase" && <Table.Th>Import / Capital</Table.Th>}
+
                   <Table.Th style={{ width: 180 }}>Amount</Table.Th>
+                  <Table.Th>Taxable</Table.Th>
+                  <Table.Th>NonTaxable</Table.Th>
+
                   <Table.Th style={{ width: 120 }}>VAT %</Table.Th>
                   <Table.Th style={{ width: 150 }}>VAT Amount</Table.Th>
                   <Table.Th style={{ width: 180 }}>Grand Total</Table.Th>
@@ -297,16 +362,37 @@ export default function AddTransaction() {
                         variant="unstyled"
                       />
                     </Table.Td>
-                    <Table.Td>
-                      <TextInput
-                        placeholder="Invoice"
-                        value={item.invoice}
-                        onChange={(e) =>
-                          handleItemChange(index, "invoice", e.currentTarget.value)
-                        }
-                        variant="unstyled"
-                      />
-                    </Table.Td>
+                    {["Sales Return", "Purchase Return"].includes(formData.type) ? (
+                      <>
+                        <Table.Td>
+                          <TextInput
+                            placeholder="Debit Invoice"
+                            value={item.debitInvoice || ""}
+                            onChange={(e) => handleItemChange(index, "debitInvoice", e.currentTarget.value)}
+                            variant="unstyled"
+                          />
+                        </Table.Td>
+                        <Table.Td>
+                          <TextInput
+                            placeholder="Credit Invoice"
+                            value={item.creditInvoice || ""}
+                            onChange={(e) => handleItemChange(index, "creditInvoice", e.currentTarget.value)}
+                            variant="unstyled"
+                          />
+                        </Table.Td>
+                      </>
+                    ) : (
+                      <Table.Td>
+                        <TextInput
+                          placeholder="Invoice"
+                          value={item.invoice}
+                          onChange={(e) =>
+                            handleItemChange(index, "invoice", e.currentTarget.value)
+                          }
+                          variant="unstyled"
+                        />
+                      </Table.Td>
+                    )}
                     <Table.Td>
                       <TextInput
                         placeholder="PAN"
@@ -319,26 +405,56 @@ export default function AddTransaction() {
                       />
                     </Table.Td>
                     <Table.Td>
-                      <TextInput
+                      <Autocomplete
                         placeholder="Particulars"
+                        data={particularSuggestions}
                         value={item.particulars}
-                        onChange={(e) =>
-                          handleItemChange(
-                            index,
-                            "particulars",
-                            e.currentTarget.value
-                          )
-                        }
+                        onChange={(value) => handleItemChange(index, "particulars", value)}
                         variant="unstyled"
                       />
                     </Table.Td>
+                    {formData.type === "Purchase" && (
+                      <Table.Td>
+                        <Group gap="xs" style={{ whiteSpace: "nowrap" }}>
+                          <Checkbox
+                            label="Import"
+                            size="xs"
+                            checked={item.isImport || false}
+                            onChange={(e) => handleItemChange(index, "isImport", e.currentTarget.checked)}
+                          />
+                          <Checkbox
+                            label="Capital Purchase"
+                            size="xs"
+                            checked={item.isCapitalPurchase || false}
+                            onChange={(e) => handleItemChange(index, "isCapitalPurchase", e.currentTarget.checked)}
+                          />
+                        </Group>
+                      </Table.Td>
+                    )}
+
                     <Table.Td>
                       <NumberInput
                         value={item.amount}
                         min={0}
-                        onChange={(v) =>
-                          handleItemChange(index, "amount", v)
-                        }
+                        onChange={(v) => handleItemChange(index, "amount", v)}
+                        variant="unstyled"
+                        hideControls
+                      />
+                    </Table.Td>
+                    <Table.Td>
+                      <NumberInput
+                        value={item.taxable}
+                        min={0}
+                        onChange={(v) => handleItemChange(index, "taxable", v)}
+                        variant="unstyled"
+                        hideControls
+                      />
+                    </Table.Td>
+                    <Table.Td>
+                      <NumberInput
+                        value={item.nonTaxable}
+                        min={0}
+                        onChange={(v) => handleItemChange(index, "nonTaxable", v)}
                         variant="unstyled"
                         hideControls
                       />
@@ -383,7 +499,7 @@ export default function AddTransaction() {
               </Table.Tbody>
               <Table.Tfoot>
                 <Table.Tr>
-                  <Table.Th colSpan={4}>
+                  <Table.Th colSpan={(["Sales Return", "Purchase Return"].includes(formData.type) ? 10 : 9) + (formData.type === "Purchase" ? 1 : 0)}>
                     <CommonButton
                       variant="subtle"
                       size="xs"
@@ -392,17 +508,6 @@ export default function AddTransaction() {
                     >
                       Add Row
                     </CommonButton>
-                  </Table.Th>
-                  <Table.Th>
-                    {formData.items
-                      .reduce((s, i) => s + i.amount, 0)
-                      .toLocaleString()}
-                  </Table.Th>
-                  <Table.Th />
-                  <Table.Th>
-                    {formData.items
-                      .reduce((s, i) => s + i.tax, 0)
-                      .toLocaleString()}
                   </Table.Th>
                   <Table.Th>
                     {formData.items

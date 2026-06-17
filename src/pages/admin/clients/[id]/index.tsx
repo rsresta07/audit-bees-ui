@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useRouter } from "next/router";
-import { Plus, ArrowLeft, Edit, Trash2, RefreshCw, ShoppingCart, Tag, CornerDownLeft, CornerUpRight, Calculator, Landmark, Download } from "lucide-react";
+import { Plus, ArrowLeft, Edit, Trash2, RefreshCw, ShoppingCart, Tag, CornerDownLeft, CornerUpRight, Calculator, Landmark, Download, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 import { UserRolesEnum } from "@/utils/enums/enum";
 import {
@@ -12,6 +12,7 @@ import { CommonTable, CommonBadge, CommonButton, CommonPagination } from "@/comp
 import { ADToBS } from "bikram-sambat-js";
 import { FiscalYear, getFiscalYearFromDate } from "@/utils/helpers/dateFormatter";
 import { exportTableToPDF } from "@/utils/helpers/pdfExport";
+import { exportTransactionsToExcel } from "@/utils/helpers/excelExport";
 
 function generateRandomPassword(): string {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -52,7 +53,13 @@ export default function ClientDetail() {
     if (!id) return;
     const storedTx = localStorage.getItem(`transactions_${id}`);
     if (storedTx) {
-      setTransactions(JSON.parse(storedTx));
+      try {
+        setTransactions(JSON.parse(storedTx));
+      } catch (e) {
+        console.error("Error parsing transactions JSON", e);
+        // Fallback to empty or initialTx if parsing fails
+        setTransactions([]);
+      }
     } else {
       const initialTx = [
         {
@@ -87,11 +94,24 @@ export default function ClientDetail() {
     }
   }, [id]);
 
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const filteredTransactions = transactions.filter(t => {
+    if (!startDate && !endDate) return true;
+    const txDate = new Date(t.date);
+    if (startDate && txDate < new Date(startDate)) return false;
+    if (endDate && txDate > new Date(endDate)) return false;
+    return true;
+  });
+
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
-  const paginatedTransactions = transactions.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
-
+  React.useEffect(() => {
+    setPage(1);
+  }, [startDate, endDate]);
 
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
   const [clientData, setClientData] = useState({
@@ -152,9 +172,33 @@ export default function ClientDetail() {
     }
   };
 
+  const handleExportExcel = () => {
+    exportTransactionsToExcel({
+      transactions: filteredTransactions,
+      clientData: {
+        name: clientData.name,
+        pan: clientData.pan,
+        vatPeriod: clientData.vatPeriod
+      },
+      filename: `Transactions_${clientData.name.replace(/\s+/g, '_')}_${getTodayDate()}.xlsx`
+    });
+  };
+
   const handleExportPDF = () => {
-    const tableRows = transactions.map(tx => {
-      const invoices = tx.items && tx.items.length > 0 ? tx.items.map((i: any) => i.invoice || "-").join("\n") : tx.invoice;
+    const tableRows = filteredTransactions.map(tx => {
+      const invoices = tx.items && tx.items.length > 0 ? tx.items.map((i: any) => {
+        if (tx.type.includes("Return")) {
+          const parts = [];
+          if (i.debitInvoice) parts.push(`Dr: ${i.debitInvoice}`);
+          if (i.creditInvoice) parts.push(`Cr: ${i.creditInvoice}`);
+          return parts.length > 0 ? parts.join(" | ") : "-";
+        }
+        return i.invoice || "-";
+      }).join("\n") : (
+        tx.type.includes("Return")
+          ? [tx.debitInvoice ? `Dr: ${tx.debitInvoice}` : "", tx.creditInvoice ? `Cr: ${tx.creditInvoice}` : ""].filter(Boolean).join(" | ") || "-"
+          : tx.invoice || "-"
+      );
       const particulars = tx.items && tx.items.length > 0 ? tx.items.map((i: any) => i.particulars || "-").join("\n") : tx.particulars;
       const pans = tx.items && tx.items.length > 0 ? tx.items.map((i: any) => i.pan || "-").join("\n") : tx.pan;
 
@@ -178,17 +222,17 @@ export default function ClientDetail() {
     });
   };
 
-  const totalSales = transactions.filter(t => t.type === "Sales").reduce((acc, t) => acc + t.amount, 0);
-  const totalPurchase = transactions.filter(t => t.type === "Purchase").reduce((acc, t) => acc + t.amount, 0);
-  const salesReturn = transactions.filter(t => t.type === "Sales Return").reduce((acc, t) => acc + t.amount, 0);
-  const purchaseReturn = transactions.filter(t => t.type === "Purchase Return").reduce((acc, t) => acc + t.amount, 0);
+  const totalSales = filteredTransactions.filter(t => t.type === "Sales").reduce((acc, t) => acc + t.amount, 0);
+  const totalPurchase = filteredTransactions.filter(t => t.type === "Purchase").reduce((acc, t) => acc + t.amount, 0);
+  const salesReturn = filteredTransactions.filter(t => t.type === "Sales Return").reduce((acc, t) => acc + t.amount, 0);
+  const purchaseReturn = filteredTransactions.filter(t => t.type === "Purchase Return").reduce((acc, t) => acc + t.amount, 0);
 
   const netTaxable = (totalSales - salesReturn) - (totalPurchase - purchaseReturn);
 
-  const salesTax = transactions.filter(t => t.type === "Sales").reduce((acc, t) => acc + t.tax, 0);
-  const purchaseTax = transactions.filter(t => t.type === "Purchase").reduce((acc, t) => acc + t.tax, 0);
-  const salesReturnTax = transactions.filter(t => t.type === "Sales Return").reduce((acc, t) => acc + t.tax, 0);
-  const purchaseReturnTax = transactions.filter(t => t.type === "Purchase Return").reduce((acc, t) => acc + t.tax, 0);
+  const salesTax = filteredTransactions.filter(t => t.type === "Sales").reduce((acc, t) => acc + t.tax, 0);
+  const purchaseTax = filteredTransactions.filter(t => t.type === "Purchase").reduce((acc, t) => acc + t.tax, 0);
+  const salesReturnTax = filteredTransactions.filter(t => t.type === "Sales Return").reduce((acc, t) => acc + t.tax, 0);
+  const purchaseReturnTax = filteredTransactions.filter(t => t.type === "Purchase Return").reduce((acc, t) => acc + t.tax, 0);
 
   const netVat = (salesTax - salesReturnTax) - (purchaseTax - purchaseReturnTax);
 
@@ -285,11 +329,30 @@ export default function ClientDetail() {
 
       <Paper withBorder radius="md">
         <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
-          <Group justify="space-between">
+          <Group justify="space-between" mb="sm">
             <Title order={3} size="h4">Transactions</Title>
-            <CommonButton size="xs" variant="light" leftSection={<Download size={14} />} onClick={handleExportPDF}>
-              Export PDF
-            </CommonButton>
+            <Group gap="xs">
+              <CommonButton size="xs" variant="light" color="var(--chart-2)" leftSection={<FileSpreadsheet size={14} />} onClick={handleExportExcel}>
+                Export Excel
+              </CommonButton>
+              <CommonButton size="xs" variant="light" leftSection={<Download size={14} />} onClick={handleExportPDF}>
+                Export PDF
+              </CommonButton>
+            </Group>
+          </Group>
+          <Group gap="md">
+            <TextInput 
+              type="date" 
+              label="Start Date" 
+              value={startDate} 
+              onChange={e => setStartDate(e.currentTarget.value)} 
+            />
+            <TextInput 
+              type="date" 
+              label="End Date" 
+              value={endDate} 
+              onChange={e => setEndDate(e.currentTarget.value)} 
+            />
           </Group>
         </Box>
         <CommonTable
@@ -307,8 +370,16 @@ export default function ClientDetail() {
               </Table.Td>
               <Table.Td>
                 {tx.items && tx.items.length > 0
-                  ? tx.items.map((item: any) => <div key={item.id}>{item.invoice || "-"}</div>)
-                  : tx.invoice}
+                  ? tx.items.map((item: any) => (
+                      <div key={item.id}>
+                        {tx.type.includes("Return")
+                          ? [item.debitInvoice ? `Dr: ${item.debitInvoice}` : "", item.creditInvoice ? `Cr: ${item.creditInvoice}` : ""].filter(Boolean).join(" | ") || "-"
+                          : item.invoice || "-"}
+                      </div>
+                    ))
+                  : tx.type.includes("Return")
+                    ? [tx.debitInvoice ? `Dr: ${tx.debitInvoice}` : "", tx.creditInvoice ? `Cr: ${tx.creditInvoice}` : ""].filter(Boolean).join(" | ") || "-"
+                    : tx.invoice || "-"}
               </Table.Td>
               <Table.Td>
                 {tx.items && tx.items.length > 0
@@ -335,9 +406,9 @@ export default function ClientDetail() {
             </Table.Tr>
           ))}
         </CommonTable>
-        {transactions.length > itemsPerPage && (
+        {filteredTransactions.length > itemsPerPage && (
           <CommonPagination
-            total={Math.ceil(transactions.length / itemsPerPage)}
+            total={Math.ceil(filteredTransactions.length / itemsPerPage)}
             value={page}
             onChange={setPage}
           />
