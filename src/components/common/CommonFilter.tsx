@@ -7,17 +7,17 @@ interface FilterOption {
 }
 
 interface CommonFilterProps {
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   options: FilterOption[];
   allLabel?: string;
 }
 
-export function CommonFilter({ 
-  label, 
-  value, 
-  onChange, 
+export function CommonFilter({
+  label,
+  value,
+  onChange,
   options,
   allLabel = "All"
 }: CommonFilterProps) {
