@@ -225,10 +225,10 @@ export default function AdminClients() {
           ))}
         </CommonTable>
         {filteredClients.length > itemsPerPage && (
-          <CommonPagination 
-            total={Math.ceil(filteredClients.length / itemsPerPage)} 
-            value={page} 
-            onChange={setPage} 
+          <CommonPagination
+            total={Math.ceil(filteredClients.length / itemsPerPage)}
+            value={page}
+            onChange={setPage}
           />
         )}
       </Paper>
