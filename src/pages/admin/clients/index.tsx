@@ -53,7 +53,11 @@ export default function AdminClients() {
   useEffect(() => {
     const storedPeriods = localStorage.getItem("filingPeriods");
     if (storedPeriods) {
-      setFilingPeriods(JSON.parse(storedPeriods));
+      try {
+        setFilingPeriods(JSON.parse(storedPeriods));
+      } catch (e) {
+        console.error("Failed to parse filingPeriods", e);
+      }
     } else {
       setFilingPeriods([
         { id: "1", name: "Monthly" },

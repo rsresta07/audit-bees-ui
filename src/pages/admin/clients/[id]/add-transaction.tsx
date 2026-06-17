@@ -6,7 +6,7 @@ import Link from "next/link";
 import { UserRolesEnum } from "@/utils/enums/enum";
 import {
   Group, Text, Title, Paper, TextInput, Select, Checkbox,
-  SimpleGrid, ActionIcon, NumberInput, Box, Table
+  SimpleGrid, ActionIcon, NumberInput, Box, Table, Autocomplete
 } from "@mantine/core";
 import { CommonButton } from "@/components/common";
 import { FiscalYear, getFiscalYearFromDate } from "@/utils/helpers/dateFormatter";
@@ -121,6 +121,39 @@ export default function AddTransaction() {
       }
     }
   }, [txId, id]);
+
+  const particularSuggestions = React.useMemo(() => {
+    const storedTx = localStorage.getItem(`transactions_${id}`);
+    if (!storedTx) return [];
+    try {
+      const transactions = JSON.parse(storedTx);
+      let targetTypes: string[] = [];
+      
+      if (formData.type === "Sales" || formData.type === "Purchase Return") {
+        targetTypes = ["Purchase"];
+      } else if (formData.type === "Sales Return") {
+        targetTypes = ["Sales"];
+      } else if (formData.type === "Purchase") {
+        targetTypes = ["Purchase"];
+      }
+
+      const particulars = new Set<string>();
+      transactions.forEach((tx: any) => {
+        if (targetTypes.includes(tx.type)) {
+          if (tx.items && tx.items.length > 0) {
+            tx.items.forEach((item: any) => {
+              if (item.particulars) particulars.add(item.particulars);
+            });
+          } else if (tx.particulars) {
+            particulars.add(tx.particulars);
+          }
+        }
+      });
+      return Array.from(particulars);
+    } catch (e) {
+      return [];
+    }
+  }, [id, formData.type]);
 
   const validateTxForm = (): boolean => {
     const errors: TxErrors = {};
@@ -372,16 +405,11 @@ export default function AddTransaction() {
                       />
                     </Table.Td>
                     <Table.Td>
-                      <TextInput
+                      <Autocomplete
                         placeholder="Particulars"
+                        data={particularSuggestions}
                         value={item.particulars}
-                        onChange={(e) =>
-                          handleItemChange(
-                            index,
-                            "particulars",
-                            e.currentTarget.value
-                          )
-                        }
+                        onChange={(value) => handleItemChange(index, "particulars", value)}
                         variant="unstyled"
                       />
                     </Table.Td>
