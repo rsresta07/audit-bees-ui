@@ -35,6 +35,10 @@ type ClientErrors = {
 };
 
 export default function AdminClients() {
+  // Prevent server-side rendering to avoid hydration mismatches
+  if (typeof window === 'undefined') {
+    return null;
+  }
   const [clients, setClients] = useState([
     { id: "1", name: "Alpha Solutions", pan: "100000001", address: "Kathmandu", vatPeriod: "Monthly" },
     { id: "2", name: "Beta Tech", pan: "100000002", address: "Pokhara", vatPeriod: "Trimester" },
@@ -69,18 +73,69 @@ export default function AdminClients() {
   const [filingPeriods, setFilingPeriods] = useState<{ id: string, name: string }[]>([]);
 
   useEffect(() => {
+    // Persist clients to localStorage on change
+    try {
+      localStorage.setItem("adminClients", JSON.stringify(clients));
+    } catch (e) {
+      console.error('Failed to store adminClients', e);
+    }
+  }, [clients]);
+
+  useEffect(() => {
+    // Load filing periods from storage
     const storedPeriods = localStorage.getItem("filingPeriods");
     if (storedPeriods) {
       try {
         setFilingPeriods(JSON.parse(storedPeriods));
       } catch (e) {
-        console.error("Failed to parse filingPeriods", e);
+        console.error('Failed to parse filingPeriods', e);
       }
     } else {
       setFilingPeriods([
         { id: "1", name: "Monthly" },
         { id: "2", name: "Trimester" },
       ]);
+    }
+    // Load clients from storage, fallback to default list if not present or corrupted
+    const storedClients = localStorage.getItem('adminClients');
+    if (storedClients) {
+      try {
+        const parsed = JSON.parse(storedClients);
+        setClients(parsed);
+      } catch (e) {
+        console.error('Failed to parse adminClients', e);
+        setClients([
+          { id: "1", name: "Alpha Solutions", pan: "100000001", address: "Kathmandu", vatPeriod: "Monthly" },
+          { id: "2", name: "Beta Tech", pan: "100000002", address: "Pokhara", vatPeriod: "Trimester" },
+          // ... (you can keep original default list or add more as needed)
+        ]);
+      }
+    } else {
+      // No saved clients, initialize with default list and store it
+      const defaultClients = [
+        { id: "1", name: "Alpha Solutions", pan: "100000001", address: "Kathmandu", vatPeriod: "Monthly" },
+        { id: "2", name: "Beta Tech", pan: "100000002", address: "Pokhara", vatPeriod: "Trimester" },
+        { id: "3", name: "Gamma Traders", pan: "100000003", address: "Lalitpur", vatPeriod: "Monthly" },
+        { id: "4", name: "Delta Exports", pan: "100000004", address: "Bhaktapur", vatPeriod: "Trimester" },
+        { id: "5", name: "Epsilon Logistics", pan: "100000005", address: "Chitwan", vatPeriod: "Monthly" },
+        { id: "6", name: "Zeta Designs", pan: "100000006", address: "Butwal", vatPeriod: "Monthly" },
+        { id: "7", name: "Eta Ventures", pan: "100000007", address: "Biratnagar", vatPeriod: "Trimester" },
+        { id: "8", name: "Theta Media", pan: "100000008", address: "Dharan", vatPeriod: "Monthly" },
+        { id: "9", name: "Iota Systems", pan: "100000009", address: "Nepalgunj", vatPeriod: "Trimester" },
+        { id: "10", name: "Kappa Retail", pan: "100000010", address: "Hetauda", vatPeriod: "Monthly" },
+        { id: "11", name: "Lambda Foods", pan: "100000011", address: "Itahari", vatPeriod: "Monthly" },
+        { id: "12", name: "Mu Consulting", pan: "100000012", address: "Janakpur", vatPeriod: "Trimester" },
+        { id: "13", name: "Nu Agencies", pan: "100000013", address: "Surkhet", vatPeriod: "Monthly" },
+        { id: "14", name: "Xi Electronics", pan: "100000014", address: "Mahendranagar", vatPeriod: "Monthly" },
+        { id: "15", name: "Om Auto", pan: "100000015", address: "Butwal", vatPeriod: "Trimester" },
+        { id: "16", name: "Pi Construction", pan: "100000016", address: "Pokhara", vatPeriod: "Monthly" },
+        { id: "17", name: "Rho Health", pan: "100000017", address: "Kathmandu", vatPeriod: "Trimester" },
+        { id: "18", name: "Sigma Education", pan: "100000018", address: "Lalitpur", vatPeriod: "Monthly" },
+        { id: "19", name: "Tau Software", pan: "100000019", address: "Bhaktapur", vatPeriod: "Monthly" },
+        { id: "20", name: "Upsilon Marketing", pan: "100000020", address: "Pokhara", vatPeriod: "Trimester" },
+      ];
+      setClients(defaultClients);
+      localStorage.setItem('adminClients', JSON.stringify(defaultClients));
     }
   }, []);
 

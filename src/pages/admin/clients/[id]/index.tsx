@@ -114,10 +114,26 @@ export default function ClientDetail() {
   }, [startDate, endDate]);
 
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
-  const [clientData, setClientData] = useState({
-    name: "Acme Corp", pan: "123456789", address: "Kathmandu", password: "", vatPeriod: "Monthly"
-  });
+  const [clientData, setClientData] = useState({ name: "", pan: "", address: "", vatPeriod: "Monthly", password: "" });
   const [clientFormErrors, setClientFormErrors] = useState<ClientErrors>({});
+
+  // Load client details from stored admin clients
+  React.useEffect(() => {
+    const clientId = Array.isArray(id) ? id[0] : id;
+    if (!clientId) return;
+    const storedClients = localStorage.getItem('adminClients');
+    if (storedClients) {
+      try {
+        const clients = JSON.parse(storedClients);
+        const client = clients.find((c: any) => c.id === clientId);
+        if (client) {
+          setClientData({ name: client.name, pan: client.pan, address: client.address, vatPeriod: client.vatPeriod, password: client.password });
+        }
+      } catch (e) {
+        console.error('Error parsing adminClients', e);
+      }
+    }
+  }, [id]);
 
   const [filingPeriods, setFilingPeriods] = useState<{ id: string, name: string }[]>([]);
 
@@ -341,17 +357,17 @@ export default function ClientDetail() {
             </Group>
           </Group>
           <Group gap="md">
-            <TextInput 
-              type="date" 
-              label="Start Date" 
-              value={startDate} 
-              onChange={e => setStartDate(e.currentTarget.value)} 
+            <TextInput
+              type="date"
+              label="Start Date"
+              value={startDate}
+              onChange={e => setStartDate(e.currentTarget.value)}
             />
-            <TextInput 
-              type="date" 
-              label="End Date" 
-              value={endDate} 
-              onChange={e => setEndDate(e.currentTarget.value)} 
+            <TextInput
+              type="date"
+              label="End Date"
+              value={endDate}
+              onChange={e => setEndDate(e.currentTarget.value)}
             />
           </Group>
         </Box>
@@ -371,12 +387,12 @@ export default function ClientDetail() {
               <Table.Td>
                 {tx.items && tx.items.length > 0
                   ? tx.items.map((item: any) => (
-                      <div key={item.id}>
-                        {tx.type.includes("Return")
-                          ? [item.debitInvoice ? `Dr: ${item.debitInvoice}` : "", item.creditInvoice ? `Cr: ${item.creditInvoice}` : ""].filter(Boolean).join(" | ") || "-"
-                          : item.invoice || "-"}
-                      </div>
-                    ))
+                    <div key={item.id}>
+                      {tx.type.includes("Return")
+                        ? [item.debitInvoice ? `Dr: ${item.debitInvoice}` : "", item.creditInvoice ? `Cr: ${item.creditInvoice}` : ""].filter(Boolean).join(" | ") || "-"
+                        : item.invoice || "-"}
+                    </div>
+                  ))
                   : tx.type.includes("Return")
                     ? [tx.debitInvoice ? `Dr: ${tx.debitInvoice}` : "", tx.creditInvoice ? `Cr: ${tx.creditInvoice}` : ""].filter(Boolean).join(" | ") || "-"
                     : tx.invoice || "-"}
