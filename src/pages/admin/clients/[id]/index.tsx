@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useRouter } from "next/router";
@@ -347,29 +348,26 @@ export default function ClientDetail() {
         <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
           <Group justify="space-between" mb="sm">
             <Title order={3} size="h4">Transactions</Title>
-            <Group gap="xs">
-              {/* <CommonButton size="xs" variant="light" color="var(--chart-2)" leftSection={<FileSpreadsheet size={14} />} onClick={handleExportExcel}>
+            <Group gap="md">
+              <TextInput
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.currentTarget.value)}
+              />
+              <TextInput
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.currentTarget.value)}
+              />
+              <CommonButton size="xs" variant="light" color="var(--chart-2)" leftSection={<FileSpreadsheet size={14} />} onClick={handleExportExcel} disabled={true}>
                 Export Excel
-              </CommonButton> */}
-              <CommonButton size="xs" variant="light" leftSection={<Download size={14} />} onClick={handleExportPDF} disabled={true}>
+              </CommonButton>
+              <CommonButton size="xs" variant="light" leftSection={<Download size={14} />} onClick={handleExportPDF}>
                 Export PDF
               </CommonButton>
             </Group>
           </Group>
-          <Group gap="md">
-            <TextInput
-              type="date"
-              label="Start Date"
-              value={startDate}
-              onChange={e => setStartDate(e.currentTarget.value)}
-            />
-            <TextInput
-              type="date"
-              label="End Date"
-              value={endDate}
-              onChange={e => setEndDate(e.currentTarget.value)}
-            />
-          </Group>
+
         </Box>
         <CommonTable
           headers={["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Tax", "Actions"]}

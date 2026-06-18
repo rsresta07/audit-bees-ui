@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import Link from "next/link";

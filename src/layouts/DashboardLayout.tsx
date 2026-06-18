@@ -1,3 +1,4 @@
+"use client";
 import React, { ReactNode } from "react";
 import { AppShell, Burger, Group, NavLink, Text, Button, ActionIcon, useMantineColorScheme } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";

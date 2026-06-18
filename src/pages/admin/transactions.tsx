@@ -110,7 +110,7 @@ export default function AdminTransactions() {
             />
           </Flex>
         </Flex>
-        <Flex gap="md" mt="md" align="center">
+        <Flex gap="md" mt="md" align="center" justify="space-between">
           <CommonFilter
             value={typeFilter || ""}
             onChange={setTypeFilter}
@@ -122,7 +122,7 @@ export default function AdminTransactions() {
               { label: 'Purchase Return', value: 'Purchase Return' },
             ]}
           />
-          <CommonButton variant="light" color="var(--chart-2)" leftSection={<FileSpreadsheet size={16} />} onClick={handleExportExcel}>
+          <CommonButton variant="light" color="var(--chart-2)" leftSection={<FileSpreadsheet size={16} />} onClick={handleExportExcel} disabled={true}>
             Export Excel
           </CommonButton>
         </Flex>
