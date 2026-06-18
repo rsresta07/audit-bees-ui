@@ -9,6 +9,7 @@ interface CommonButtonProps extends ButtonProps {
   component?: any;
   href?: string;
   mb?: string | number;
+  disabled?: boolean;
 }
 
 export function CommonButton({ children, ...props }: CommonButtonProps) {

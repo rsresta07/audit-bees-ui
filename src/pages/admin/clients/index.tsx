@@ -264,7 +264,7 @@ export default function AdminClients() {
             onChange={(e) => setSearch(e.target.value)}
           />
           <CommonFilter
-            label="Filter by VAT Period:"
+            // label="Filter by VAT Period:"
             value={vatFilter || ""}
             onChange={setVatFilter}
             allLabel="All VAT Periods"

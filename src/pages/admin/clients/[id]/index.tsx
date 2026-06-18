@@ -63,7 +63,7 @@ export default function ClientDetail() {
     } else {
       // Generate 20 dummy transactions for the client
       const dummyTx: any[] = [];
-      const types = ["Sales", "Purchase", "Sales Return", "Purchase Return"]; 
+      const types = ["Sales", "Purchase", "Sales Return", "Purchase Return"];
       for (let i = 1; i <= 20; i++) {
         const type = types[Math.floor(Math.random() * types.length)];
         const amount = Math.floor(Math.random() * 90000) + 1000; // 1k-91k
@@ -348,10 +348,10 @@ export default function ClientDetail() {
           <Group justify="space-between" mb="sm">
             <Title order={3} size="h4">Transactions</Title>
             <Group gap="xs">
-              <CommonButton size="xs" variant="light" color="var(--chart-2)" leftSection={<FileSpreadsheet size={14} />} onClick={handleExportExcel}>
+              {/* <CommonButton size="xs" variant="light" color="var(--chart-2)" leftSection={<FileSpreadsheet size={14} />} onClick={handleExportExcel}>
                 Export Excel
-              </CommonButton>
-              <CommonButton size="xs" variant="light" leftSection={<Download size={14} />} onClick={handleExportPDF}>
+              </CommonButton> */}
+              <CommonButton size="xs" variant="light" leftSection={<Download size={14} />} onClick={handleExportPDF} disabled={true}>
                 Export PDF
               </CommonButton>
             </Group>
