@@ -89,6 +89,23 @@ export default function AddTransaction() {
   }, []);
 
   useEffect(() => {
+    // Once fiscal years are loaded, apply the default VAT rate to the initial empty row if it's 0
+    if (!txId && fiscalYears.length > 0) {
+      setFormData(prev => {
+        if (prev.items.length === 1 && prev.items[0].vatPercent === 0 && prev.items[0].taxable === 0) {
+          const defaultVat = getFiscalYearFromDate(prev.items[0].date, fiscalYears)?.vatAmount ?? 0;
+          if (defaultVat > 0) {
+            const newItems = [...prev.items];
+            newItems[0] = { ...newItems[0], vatPercent: defaultVat };
+            return { ...prev, items: newItems };
+          }
+        }
+        return prev;
+      });
+    }
+  }, [fiscalYears, txId]);
+
+  useEffect(() => {
     if (txId && typeof txId === "string") {
       const storedTx = localStorage.getItem(`transactions_${id}`);
       if (storedTx) {
@@ -230,15 +247,16 @@ export default function AddTransaction() {
     const newItems = [...formData.items];
     const item = { ...newItems[index], [field]: value };
 
-    const vatRate = item.date ? getFiscalYearFromDate(item.date, fiscalYears)?.vatAmount ?? currentVatRate : currentVatRate;
-    
-    if (field === "amount" || field === "taxable" || field === "nonTaxable") {
+    if (field === "amount" || field === "taxable" || field === "nonTaxable" || field === "vatPercent") {
       item[field] = Number(value) || 0;
     }
 
-    const tax = item.taxable * (vatRate / 100);
+    if (field === "date") {
+      item.vatPercent = getFiscalYearFromDate(item.date, fiscalYears)?.vatAmount ?? currentVatRate;
+    }
 
-    item.vatPercent = vatRate;
+    const tax = item.taxable * (item.vatPercent / 100);
+
     item.tax = Number(tax.toFixed(2));
     item.grandTotal = Number((item.taxable + item.nonTaxable + tax).toFixed(2));
 
@@ -463,8 +481,8 @@ export default function AddTransaction() {
                     <Table.Td>
                       <NumberInput
                         value={item.vatPercent}
-                        readOnly
                         suffix="%"
+                        onChange={(v) => handleItemChange(index, "vatPercent", v)}
                         variant="unstyled"
                         hideControls
                       />

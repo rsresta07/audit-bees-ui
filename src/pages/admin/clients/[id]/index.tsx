@@ -226,14 +226,17 @@ export default function ClientDetail() {
         particulars,
         pans,
         tx.amount.toLocaleString(),
+        (tx.taxable ?? tx.amount).toLocaleString(),
+        (tx.nonTaxable ?? 0).toLocaleString(),
         tx.tax.toLocaleString(),
+        (tx.amount + tx.tax).toLocaleString()
       ];
     });
 
     exportTableToPDF({
       title: `Transactions - ${clientData.name}`,
       subtitle: `PAN: ${clientData.pan} | Address: ${clientData.address}`,
-      columns: ["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Tax"],
+      columns: ["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Taxable Amount", "Non Taxable Amount", "Tax", "Total"],
       data: tableRows,
       filename: `Transactions_${clientData.name.replace(/\s+/g, '_')}_${getTodayDate()}.pdf`
     });
@@ -370,7 +373,7 @@ export default function ClientDetail() {
 
         </Box>
         <CommonTable
-          headers={["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Tax", "Actions"]}
+          headers={["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Taxable Amount", "Non Taxable Amount", "Tax", "Total", "Actions"]}
           isEmpty={paginatedTransactions.length === 0}
           emptyMessage="No transactions found."
         >
@@ -406,7 +409,10 @@ export default function ClientDetail() {
                   : tx.pan}
               </Table.Td>
               <Table.Td>{tx.amount.toLocaleString()}</Table.Td>
+              <Table.Td>{(tx.taxable ?? tx.amount).toLocaleString()}</Table.Td>
+              <Table.Td>{(tx.nonTaxable ?? 0).toLocaleString()}</Table.Td>
               <Table.Td>{tx.tax.toLocaleString()}</Table.Td>
+              <Table.Td>{(tx.amount + tx.tax).toLocaleString()}</Table.Td>
               <Table.Td>
                 <Group gap="xs">
                   <ActionIcon component={Link} href={`/admin/clients/${id}/add-transaction?txId=${tx.id}`} variant="light" color="var(--chart-3)">

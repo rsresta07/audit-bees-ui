@@ -8,7 +8,7 @@ import { FileSpreadsheet } from "lucide-react";
 import { TextInput } from "@mantine/core";
 
 export default function AdminTransactions() {
-  const [transactions] = useState([
+  const [transactions] = useState<any[]>([
     { id: "1", client: "Acme Corp", type: "Sales", date: "2024-01-01", invoice: "INV-001", particular: "Software License", amount: 5000, tax: 650 },
     { id: "2", client: "Acme Corp", type: "Purchase", date: "2024-01-05", invoice: "PUR-001", particular: "Office Supplies", amount: 1000, tax: 130 },
     { id: "3", client: "Global Tech", type: "Sales", date: "2024-01-10", invoice: "INV-002", particular: "Consulting", amount: 15000, tax: 1950 },
@@ -130,7 +130,7 @@ export default function AdminTransactions() {
 
       <Paper withBorder radius="md">
         <CommonTable
-          headers={["Client", "Date", "Type", "Invoice No", "Particulars", "Amount", "Tax"]}
+          headers={["Client", "Date", "Type", "Invoice No", "Particulars", "Amount", "Taxable Amount", "Non Taxable Amount", "Tax", "Total"]}
           isEmpty={paginatedTransactions.length === 0}
           emptyMessage="No transactions found."
         >
@@ -146,7 +146,10 @@ export default function AdminTransactions() {
               <Table.Td>{t.invoice}</Table.Td>
               <Table.Td>{t.particular}</Table.Td>
               <Table.Td>{t.amount.toLocaleString()}</Table.Td>
+              <Table.Td>{(t.taxable ?? t.amount).toLocaleString()}</Table.Td>
+              <Table.Td>{(t.nonTaxable ?? 0).toLocaleString()}</Table.Td>
               <Table.Td>{t.tax.toLocaleString()}</Table.Td>
+              <Table.Td>{(t.amount + t.tax).toLocaleString()}</Table.Td>
             </Table.Tr>
           ))}
         </CommonTable>

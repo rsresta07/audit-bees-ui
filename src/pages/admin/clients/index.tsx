@@ -36,10 +36,10 @@ type ClientErrors = {
 };
 
 export default function AdminClients() {
-  // Prevent server-side rendering to avoid hydration mismatches
-  if (typeof window === 'undefined') {
-    return null;
-  }
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [clients, setClients] = useState([
     { id: "1", name: "Alpha Solutions", pan: "100000001", address: "Kathmandu", vatPeriod: "Monthly" },
     { id: "2", name: "Beta Tech", pan: "100000002", address: "Pokhara", vatPeriod: "Trimester" },
@@ -208,6 +208,10 @@ export default function AdminClients() {
     setFormData(prev => ({ ...prev, [key]: value }));
     setFormErrors(prev => ({ ...prev, [key]: undefined }));
   };
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <DashboardLayout role={UserRolesEnum.SUPER_ADMIN}>

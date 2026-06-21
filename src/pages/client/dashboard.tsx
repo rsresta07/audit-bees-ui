@@ -7,7 +7,7 @@ import { Download } from "lucide-react";
 import { exportTableToPDF } from "@/utils/helpers/pdfExport";
 
 export default function ClientDashboard() {
-  const [transactions] = useState([
+  const [transactions] = useState<any[]>([
     { id: "1", type: "Sales", date: "2024-03-15", invoice: "INV-100", particulars: "Website Dev", pan: "12345", amount: 50000, tax: 6500 },
     { id: "2", type: "Purchase", date: "2024-03-18", invoice: "PUR-20", particulars: "Office Supplies", pan: "98765", amount: 10000, tax: 1300 },
     { id: "3", type: "Sales Return", date: "2024-03-20", invoice: "SR-01", particulars: "Refund", pan: "12345", amount: 5000, tax: 650 },
@@ -42,12 +42,15 @@ export default function ClientDashboard() {
       tx.particulars,
       tx.pan,
       tx.amount.toLocaleString(),
-      tx.tax.toLocaleString()
+      (tx.taxable ?? tx.amount).toLocaleString(),
+      (tx.nonTaxable ?? 0).toLocaleString(),
+      tx.tax.toLocaleString(),
+      (tx.amount + tx.tax).toLocaleString()
     ]);
 
     exportTableToPDF({
       title: "My Transactions",
-      columns: ["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Tax"],
+      columns: ["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Taxable Amount", "Non Taxable Amount", "Tax", "Total"],
       data: tableRows,
       filename: `My_Transactions_${getTodayDate()}.pdf`
     });
@@ -92,7 +95,7 @@ export default function ClientDashboard() {
 
       <Paper withBorder shadow="sm" radius="md">
         <CommonTable
-          headers={["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Tax"]}
+          headers={["Date", "Type", "Invoice No.", "Particulars", "PAN/VAT", "Amount", "Taxable Amount", "Non Taxable Amount", "Tax", "Total"]}
           isEmpty={paginatedTransactions.length === 0}
           emptyMessage="No transactions found."
         >
@@ -108,7 +111,10 @@ export default function ClientDashboard() {
               <Table.Td>{tx.particulars}</Table.Td>
               <Table.Td>{tx.pan}</Table.Td>
               <Table.Td>{tx.amount.toLocaleString()}</Table.Td>
+              <Table.Td>{(tx.taxable ?? tx.amount).toLocaleString()}</Table.Td>
+              <Table.Td>{(tx.nonTaxable ?? 0).toLocaleString()}</Table.Td>
               <Table.Td>{tx.tax.toLocaleString()}</Table.Td>
+              <Table.Td>{(tx.amount + tx.tax).toLocaleString()}</Table.Td>
             </Table.Tr>
           ))}
         </CommonTable>
